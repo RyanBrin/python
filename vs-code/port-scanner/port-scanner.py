@@ -36,12 +36,20 @@ top_1000_ports = list(range(1, 1001))  # First 1000 ports
 
 all_ports = range(1, 65536)  # All 65535 ports
 
-RESULTS_DIR = "logs"
-timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-scan_dir = Path(RESULTS_DIR) / f"scan-{timestamp}"
-runtime_log_file = scan_dir / "runtime-log.txt"
 
+RESULTS_DIR = "logs" # Directory to store scan results
+timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S") # Timestamp
+BASE_DIR = Path(__file__).resolve().parent  # Gets the directory where the script is located
+PORT_SCANNER_DIR = BASE_DIR  # Ensure "port-scanner" is the base folder
+RESULTS_DIR = PORT_SCANNER_DIR / "logs"  # Logs folder inside "port-scanner"
+scan_dir = RESULTS_DIR / f"scan-{timestamp}"  # Scan-specific folder
+runtime_log_file = scan_dir / "runtime-log.txt"  # Runtime log file
+
+# Ensure all required directories exist
+os.makedirs(PORT_SCANNER_DIR, exist_ok=True)
+os.makedirs(RESULTS_DIR, exist_ok=True)
 os.makedirs(scan_dir, exist_ok=True)
+
 
 def log_message(message: str):
     """Logs a message to the runtime log file with a timestamp."""
@@ -137,7 +145,7 @@ log_message(f"Closed ports: {len(closed_ports)}")
 log_message(f"Results saved in: {scan_dir}")
 
 # Save final results in files
-with open(scan_dir / "open-ports.txt", "w") as f:
+with open((scan_dir / "open-ports.txt"), "w") as f:
     f.write("Open Ports:\n")
     f.writelines([f"{port}\n" for port in open_ports])
 
