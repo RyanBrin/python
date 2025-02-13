@@ -53,16 +53,7 @@ log_message(f"Results will be stored in: {scan_dir}")
 
 def get_target() -> str:
     """Prompts the user to enter a target IP or hostname and sanitizes the input."""
-    target = input("Enter the target (IP or hostname): ").strip()
-    
-    if "http://" in target:
-        target = target.replace("http://", "")
-    if "https://" in target:
-        target = target.replace("https://", "")
-    if ":" in target:
-        target = target.split(":")[0]
-    if "/" in target:
-        target = target.replace("/", "")
+    target = input("Enter the target IP: ").strip()
     
     log_message(f"Target resolved: {target}")
     return target
@@ -72,44 +63,30 @@ target = get_target()
 def get_ports_to_scan() -> list:
     """Allows the user to choose the scan type and defines the ports to be scanned."""
     print("\nChoose a scan type:")
-    print("    1. Fast Scan (Top 100 Ports)")
-    print("    2. Common Ports Scan")
+    print("    1. Common Ports Scan")
+    print("    2. Fast Scan (Top 100 Ports)")
     print("    3. Extended Scan (Top 1000 Ports)")
-    print("    4. Custom Ports")
-    print("    5. Full Scan (All 65535 Ports)")
+    print("    4. Full Scan (All 65535 Ports)")
 
     while True:
         try:
-            scan_type = int(input("Enter your choice (1-5): "))
-            if scan_type in [1, 2, 3, 4, 5]:
+            scan_type = int(input("Enter your choice (1-4): "))
+            if scan_type in [1, 2, 3, 4]:
                 break
             print("Invalid choice. Please enter a number between 1 and 5.")
         except ValueError:
             print("Invalid input. Please enter a number.")
-
+    
     if scan_type == 1:
-        log_message("Performing Fast Scan (Top 100 Ports).")
-        return top_100_ports
-    elif scan_type == 2:
         log_message("Performing Common Ports Scan.")
         return common_ports
+    elif scan_type == 2:
+        log_message("Performing Fast Scan (Top 100 Ports).")
+        return top_100_ports
     elif scan_type == 3:
         log_message("Performing Extended Scan (Top 1000 Ports).")
         return top_1000_ports
     elif scan_type == 4:
-        ports = []
-        print("Enter custom ports one at a time. Press ENTER to finish.")
-        while True:
-            port = input("Enter a port number (or leave blank to finish): ").strip()
-            if not port:
-                break
-            if port.isdigit():
-                ports.append(int(port))
-                log_message(f"Added port {port} for scanning.")
-            else:
-                print("Invalid port number. Please enter a valid number.")
-        return ports
-    elif scan_type == 5:
         log_message("Performing Full Scan (1-65535).")
         return all_ports
 
@@ -124,15 +101,15 @@ def scan_port(target: str, port: int):
     global scanned_ports, open_ports, closed_ports
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(0.01)  # Faster scanning with lower timeout
+        s.settimeout(5)  # Faster scanning with lower timeout
         result = s.connect_ex((target, port))
 
         if result == 0:
             open_ports.append(port)
-            log_message(f"Port {port} => OPEN")
+            log_message(f"Port {port} is OPEN")
         else:
             closed_ports.append(port)
-            log_message(f"Port {port} => CLOSED")
+            log_message(f"Port {port} is CLOSED")
         
         scanned_ports += 1
     except Exception as e:
