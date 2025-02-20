@@ -7,7 +7,7 @@ Description:
 A high-performance Port Scanner that allows users to scan a target machine's ports.
 Includes multiple scan modes and logs results in a structured format.
 
-GitHub Repository: https://github.com/RyanBrin/java/tree/main/intellij/port-scanner/
+GitHub Repository: https://github.com/RyanBrin/python/tree/main/vs-code/port-scanner/
 """
 
 import socket

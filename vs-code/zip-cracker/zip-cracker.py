@@ -2,7 +2,7 @@
 Project: Zip Cracker
 Author: Ryan Brinkman
 Date: February 14, 2025
-GitHub Repository: https://github.com/RyanBrin/java/tree/main/intellij/zip-cracker/
+GitHub Repository: https://github.com/RyanBrin/python/tree/main/vs-code/zip-cracker/
 """
 
 import zipfile

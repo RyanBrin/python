@@ -7,7 +7,7 @@ Description:
 Generates secure passwords and evaluates password strength
 based on length, complexity, and entropy.
 
-GitHub Repository: https://github.com/RyanBrin/java/tree/main/intellij/password-generator/
+GitHub Repository: https://github.com/RyanBrin/python/tree/main/vs-code/password-generator/
 """
 
 import string, secrets, os, pathlib, hashlib
