@@ -29,7 +29,7 @@ def main ():
 
 def capture_packets():
     """Captures packets from the network interface."""
-    pass
+    
 
 def display_packets():
     """Displays captured packets."""
