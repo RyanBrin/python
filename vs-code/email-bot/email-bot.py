@@ -1,3 +1,7 @@
+# Email Bot
+# Ryan Brinkman
+# 3/26/2026
+
 import csv
 import os
 from datetime import datetime, timezone
