@@ -3,18 +3,30 @@
 # 3/27/2026
 
 # main
-import pyautogui
+import ctypes
 import time
-import win
+import keyboard
 
-print("Hover over target. Press Ctrl+C when ready.\n")
+class POINT(ctypes.Structure):
+    _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
 
-print(win.left, win.top)
+def get_mouse_pos():
+    pt = POINT()
+    ctypes.windll.user32.GetCursorPos(ctypes.byref(pt))
+    return pt.x, pt.y
 
-try:
-    while True:
-        x, y = pyautogui.position()
-        print(f"X={x} Y={y}", end="\r")
-        time.sleep(0.05)
-except KeyboardInterrupt:
-    print("\nDone.")
+print("Coordinate grabber started.")
+print("Press F8 to print current mouse position.")
+print("Press ESC to quit.\n")
+
+while True:
+    if keyboard.is_pressed("f8"):
+        x, y = get_mouse_pos()
+        print(f"X={x}, Y={y}")
+        time.sleep(0.25)  # prevents spam
+
+    if keyboard.is_pressed("esc"):
+        print("Exiting.")
+        break
+
+    time.sleep(0.02)
