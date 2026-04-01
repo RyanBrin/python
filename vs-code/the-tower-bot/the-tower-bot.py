@@ -6,6 +6,7 @@ GitHub Repository: https://github.com/RyanBrin/python/tree/main/vs-code/the-towe
 """
 
 
+
 import time
 import subprocess
 import ctypes
@@ -408,6 +409,14 @@ def get_client_rect_screen(win):
     return pt.x, pt.y, rect.right - rect.left, rect.bottom - rect.top
 
 
+def get_client_rect_screen(win):
+    rect = wintypes.RECT()
+    ctypes.windll.user32.GetClientRect(win._hWnd, ctypes.byref(rect))
+    pt = wintypes.POINT(rect.left, rect.top)
+    ctypes.windll.user32.ClientToScreen(win._hWnd, ctypes.byref(pt))
+    return pt.x, pt.y, rect.right - rect.left, rect.bottom - rect.top
+
+
 def game_rect():
     win = get_game_window()
     if not win:
@@ -646,6 +655,61 @@ class ScreenReader:
         return None
     def locate_resume_button(self):
         return self.locate(RESUME_TEMPLATE, region=region_from_rel(RESUME_REGION), confidence=0.72)
+
+
+    def locate_resume_popup_button(self):
+        region = region_from_rel(RESUME_REGION)
+        if region is None:
+            return None
+
+        # Try template first
+        box = self.locate(RESUME_TEMPLATE, region=region, confidence=0.70)
+        if box:
+            return box
+
+        # Fallback: detect the bright cyan-bordered Resume button inside the popup
+        frame = screenshot_game_bgr()
+        rect = game_rect()
+        if frame is None or rect is None:
+            return None
+
+        left, top, _, _ = rect
+        rx, ry, rw, rh = region
+        local_x = max(0, rx - left)
+        local_y = max(0, ry - top)
+        roi = frame[local_y:local_y + rh, local_x:local_x + rw]
+        if roi.size == 0:
+            return None
+
+        hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
+        # Cyan/blue glow range around the Resume button
+        mask = cv2.inRange(hsv, (75, 40, 120), (120, 255, 255))
+        kernel = np.ones((5, 5), np.uint8)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        best = None
+        best_score = 0
+        for c in contours:
+            x, y, w, h = cv2.boundingRect(c)
+            area = w * h
+            if area < 2500 or w < 80 or h < 35:
+                continue
+            cx = x + w / 2
+            cy = y + h / 2
+            # Prefer lower-right button area of the popup region
+            if cx < rw * 0.45 or cy < rh * 0.45:
+                continue
+            score = area + cx * 0.5 + cy * 0.5
+            if score > best_score:
+                best_score = score
+                best = (x, y, w, h)
+
+        if best:
+            x, y, w, h = best
+            return (rx + x, ry + y, w, h)
+
+        return None
 
     def locate_flying_gem(self):
         return self.locate(FLYING_GEM_TEMPLATE, region=region_from_rel(FLYING_GEM_REGION), confidence=0.58)
@@ -894,19 +958,32 @@ def start_target_run():
 
 def resume_or_start_tier_inner():
     screen = SCREEN.scan()
+
     if screen.death_visible:
         handle_death_screen()
         return start_target_run()
+
     if screen.resume_visible:
-        return handle_resume()
-    handle_home_resume_battle()
-    time.sleep(0.7)
+        if handle_resume():
+            return True
+        time.sleep(0.6)
+        screen = SCREEN.scan()
+        if screen.resume_visible:
+            return False
+
+    # Only try home resume if popup is not on screen
     screen = SCREEN.scan()
-    if screen.resume_visible:
-        return handle_resume()
+    if not screen.resume_visible:
+        handle_home_resume_battle()
+        time.sleep(1.0)
+        screen = SCREEN.scan()
+        if screen.resume_visible:
+            return handle_resume()
+
     if get_game_window() and not screen.death_visible:
         BOT_STATE.event("Continuing active run")
         return True
+
     return start_target_run()
 
 def try_collect_ad_gem():
