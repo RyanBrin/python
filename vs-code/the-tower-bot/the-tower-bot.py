@@ -1,6 +1,9 @@
-# The Tower Bot
-# Ryan Brinkman
-# Game-window locator build with click highlight + live overlay
+"""
+Project: The Tower Bot
+Author: Ryan Brinkman
+Date: April 1, 2026
+GitHub Repository: https://github.com/RyanBrin/python/tree/main/vs-code/the-tower-bot/
+"""
 
 import time
 import subprocess
