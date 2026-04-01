@@ -1,6 +1,9 @@
-# Coordinate Finder
-# Ryan Brinkman
-# 3/27/2026
+"""
+Project: Coordinate Finder for The Tower Bot
+Author: Ryan Brinkman
+Date: April 1, 2026
+GitHub Repository: https://github.com/RyanBrin/python/tree/main/vs-code/the-tower-bot/
+"""
 
 # main
 import ctypes

@@ -36,6 +36,15 @@ try:
 except Exception:
     PIL_AVAILABLE = False
 
+
+try:
+    ctypes.windll.shcore.SetProcessDpiAwareness(2)
+except Exception:
+    try:
+        ctypes.windll.user32.SetProcessDPIAware()
+    except Exception:
+        pass
+
 pyautogui.PAUSE = 0.02
 pyautogui.FAILSAFE = True
 
@@ -121,7 +130,7 @@ class FeatureFlags:
         self.auto_resume = True
         self.live_locator = True
         self.auto_debug_snapshots = True
-        self.show_game_overlay = True
+        self.show_game_overlay = False
         self.show_click_highlights = True
     def set_flag(self, name, value):
         with self.lock:
@@ -389,12 +398,24 @@ def gently_focus_game():
     time.sleep(0.14)
     return ensure_active_window(GAME_TITLE)
 
+def get_client_rect_screen(win):
+    rect = ctypes.wintypes.RECT()
+    ctypes.windll.user32.GetClientRect(win._hWnd, ctypes.byref(rect))
+    pt = ctypes.wintypes.POINT(rect.left, rect.top)
+    ctypes.windll.user32.ClientToScreen(win._hWnd, ctypes.byref(pt))
+    client_left = pt.x
+    client_top = pt.y
+    client_width = rect.right - rect.left
+    client_height = rect.bottom - rect.top
+    return client_left, client_top, client_width, client_height
+
 def game_rect():
     win = get_game_window()
     if not win:
         return None
-    BOT_STATE.set_game_window_size(f"{win.width} x {win.height}")
-    return win.left, win.top, win.width, win.height
+    left, top, width, height = get_client_rect_screen(win)
+    BOT_STATE.set_game_window_size(f"{width} x {height}")
+    return left, top, width, height
 
 def abs_from_rel(name):
     rect = game_rect()
@@ -599,6 +620,9 @@ class ScreenReader:
             return None
     def visible(self, path: Path, region=None, confidence=TEMPLATE_CONFIDENCE):
         return self.locate(path, region=region, confidence=confidence) is not None
+
+    def locate_resume_button(self):
+        return self.locate(RESUME_TEMPLATE, region=region_from_rel(RESUME_REGION), confidence=0.72)
     def locate_ad_gem(self):
         region = region_from_rel(AD_GEM_REGION)
         box = self.locate(AD_GEM_TEMPLATE, region=region, confidence=0.58)
@@ -793,10 +817,17 @@ def ensure_game_window_ready():
 def handle_resume():
     BOT_STATE.set_phase("Resuming Run", "Resume detected")
     BOT_STATE.decision("Click popup Resume")
-    for _ in range(10):
+
+    for _ in range(8):
         if not check_running():
             return False
-        safe_game_click("resume_btn", wait=0.10)
+        box = SCREEN.locate_resume_button()
+        if box:
+            center = pyautogui.center(box)
+            safe_game_click_abs((center.x, center.y), wait=0.10, label="Popup Resume")
+        else:
+            break
+
     time.sleep(RESUME_TRANSITION_TIME)
     BOT_STATE.event("Resume completed")
     return True
@@ -1153,7 +1184,7 @@ class StatusGUI:
         header = tk.Frame(self.root, bg="#07111f")
         header.pack(fill="x", padx=14, pady=(14, 6))
         ttk.Label(header, text="The Tower Bot", style="Title.TLabel").pack(anchor="w")
-        ttk.Label(header, text="Live overlay + yellow click highlights", style="Muted.TLabel").pack(anchor="w", pady=(2, 0))
+        ttk.Label(header, text="Client-area rect + optional overlay", style="Muted.TLabel").pack(anchor="w", pady=(2, 0))
         scroll = ScrollableFrame(self.root)
         scroll.pack(fill="both", expand=True)
         body = scroll.scrollable_frame
