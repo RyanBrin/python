@@ -5,9 +5,11 @@ Date: April 1, 2026
 GitHub Repository: https://github.com/RyanBrin/python/tree/main/vs-code/the-tower-bot/
 """
 
+
 import time
 import subprocess
 import ctypes
+from ctypes import wintypes
 import threading
 from pathlib import Path
 from dataclasses import dataclass
@@ -36,6 +38,8 @@ try:
 except Exception:
     PIL_AVAILABLE = False
 
+pyautogui.PAUSE = 0.02
+pyautogui.FAILSAFE = True
 
 try:
     ctypes.windll.shcore.SetProcessDpiAwareness(2)
@@ -45,8 +49,6 @@ except Exception:
     except Exception:
         pass
 
-pyautogui.PAUSE = 0.02
-pyautogui.FAILSAFE = True
 
 PHONE_LINK_TITLE = "Phone Link"
 GAME_TITLE = "The Tower"
@@ -399,15 +401,12 @@ def gently_focus_game():
     return ensure_active_window(GAME_TITLE)
 
 def get_client_rect_screen(win):
-    rect = ctypes.wintypes.RECT()
+    rect = wintypes.RECT()
     ctypes.windll.user32.GetClientRect(win._hWnd, ctypes.byref(rect))
-    pt = ctypes.wintypes.POINT(rect.left, rect.top)
+    pt = wintypes.POINT(rect.left, rect.top)
     ctypes.windll.user32.ClientToScreen(win._hWnd, ctypes.byref(pt))
-    client_left = pt.x
-    client_top = pt.y
-    client_width = rect.right - rect.left
-    client_height = rect.bottom - rect.top
-    return client_left, client_top, client_width, client_height
+    return pt.x, pt.y, rect.right - rect.left, rect.bottom - rect.top
+
 
 def game_rect():
     win = get_game_window()
@@ -530,7 +529,7 @@ def find_upgrade_buttons(frame):
         pair = [items[0], items[-1]]
         for name, item in zip(row_names_pair, pair):
             cy, cx, x, y, ww, hh, area = item
-            click_x = x0 + x + int(ww * 0.66)
+            click_x = x0 + x + int(ww * 0.74)
             click_y = y0 + y + hh // 2
             center_screen = frame_to_screen((click_x, click_y))
             rect_screen = rect_to_screen((x0 + x, y0 + y, ww, hh))
@@ -620,9 +619,6 @@ class ScreenReader:
             return None
     def visible(self, path: Path, region=None, confidence=TEMPLATE_CONFIDENCE):
         return self.locate(path, region=region, confidence=confidence) is not None
-
-    def locate_resume_button(self):
-        return self.locate(RESUME_TEMPLATE, region=region_from_rel(RESUME_REGION), confidence=0.72)
     def locate_ad_gem(self):
         region = region_from_rel(AD_GEM_REGION)
         box = self.locate(AD_GEM_TEMPLATE, region=region, confidence=0.58)
@@ -648,6 +644,9 @@ class ScreenReader:
             bx, by, bw, bh = best
             return (x + bx, y + by, bw, bh)
         return None
+    def locate_resume_button(self):
+        return self.locate(RESUME_TEMPLATE, region=region_from_rel(RESUME_REGION), confidence=0.72)
+
     def locate_flying_gem(self):
         return self.locate(FLYING_GEM_TEMPLATE, region=region_from_rel(FLYING_GEM_REGION), confidence=0.58)
     def scan(self):
@@ -734,11 +733,23 @@ def safe_game_click_abs(point, wait=0.3, label=None):
     click(point, wait=wait, label=label)
     return True
 
+def point_in_game_rect(point):
+    rect = game_rect()
+    if not rect or point is None:
+        return False
+    left, top, width, height = rect
+    x, y = point
+    return left <= x <= left + width and top <= y <= top + height
+
+
 def safe_game_click(name, wait=0.3, label=None):
     detect_runtime_points(force=False)
     point = get_point(name)
     if point is None:
         BOT_STATE.event(f"No point for {name}")
+        return False
+    if not point_in_game_rect(point):
+        BOT_STATE.event(f"Point outside game rect for {name}: {point}")
         return False
     return safe_game_click_abs(point, wait=wait, label=label)
 
@@ -817,17 +828,18 @@ def ensure_game_window_ready():
 def handle_resume():
     BOT_STATE.set_phase("Resuming Run", "Resume detected")
     BOT_STATE.decision("Click popup Resume")
+    box = SCREEN.locate_resume_button()
+    if box:
+        center = pyautogui.center(box)
+        safe_game_click_abs((center.x, center.y), wait=0.08, label="Popup Resume")
+        time.sleep(RESUME_TRANSITION_TIME)
+        BOT_STATE.event("Resume completed")
+        return True
 
-    for _ in range(8):
+    for _ in range(6):
         if not check_running():
             return False
-        box = SCREEN.locate_resume_button()
-        if box:
-            center = pyautogui.center(box)
-            safe_game_click_abs((center.x, center.y), wait=0.10, label="Popup Resume")
-        else:
-            break
-
+        safe_game_click("resume_btn", wait=0.10, label="Fallback Resume")
     time.sleep(RESUME_TRANSITION_TIME)
     BOT_STATE.event("Resume completed")
     return True
@@ -1184,7 +1196,7 @@ class StatusGUI:
         header = tk.Frame(self.root, bg="#07111f")
         header.pack(fill="x", padx=14, pady=(14, 6))
         ttk.Label(header, text="The Tower Bot", style="Title.TLabel").pack(anchor="w")
-        ttk.Label(header, text="Client-area rect + optional overlay", style="Muted.TLabel").pack(anchor="w", pady=(2, 0))
+        ttk.Label(header, text="Client-rect clicks, popup resume priority, overlay off by default", style="Muted.TLabel").pack(anchor="w", pady=(2, 0))
         scroll = ScrollableFrame(self.root)
         scroll.pack(fill="both", expand=True)
         body = scroll.scrollable_frame
