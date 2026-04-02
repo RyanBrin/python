@@ -33,7 +33,6 @@ STOP_KEY = "f8"
 running = True
 last_focus_time = 0.0
 FOCUS_COOLDOWN = 1.0
-defense_open = False
 
 # Phone Link
 APPS_BUTTON = (587, 62)
@@ -44,8 +43,36 @@ FIRST_RESULT = (2238, 199)
 REL = {
     "dismiss_popup_blank": (0.18, 0.22),
     "home_resume_battle": (0.50, 0.825),
+    "ad_gem": (0.089, 0.581),
+
+    "attack_tab": (0.128, 0.965),
     "defense_tab": (0.370, 0.965),
+
+    # working loop buttons
     "health_buy": (0.345, 0.785),
+    "damage_buy": (0.345, 0.785),
+
+    # stored upgrade button positions for later automation
+    "attack_left_top": (0.369, 0.766),      # Damage
+    "attack_right_top": (0.850, 0.767),     # Attack Speed
+    "attack_left_mid": (0.366, 0.854),      # Critical Chance
+    "attack_right_mid": (0.865, 0.852),     # Critical Factor
+    "attack_left_bottom": (0.362, 0.945),   # Range
+    "attack_right_bottom": (0.858, 0.939),  # Damage / Meter
+
+    "defense_left_top": (0.369, 0.766),      # Health
+    "defense_right_top": (0.850, 0.767),     # Health Regen
+    "defense_left_mid": (0.366, 0.854),      # Defense %
+    "defense_right_mid": (0.865, 0.852),     # Defense Absolute
+    "defense_left_bottom": (0.362, 0.945),   # Thorn Damage
+    "defense_right_bottom": (0.858, 0.939),  # Lifesteal
+
+    "utility_left_top": (0.369, 0.766),      # Cash Bonus
+    "utility_right_top": (0.850, 0.767),     # Cash / Wave
+    "utility_left_mid": (0.366, 0.854),      # Coins / Kill Bonus
+    "utility_right_mid": (0.865, 0.852),     # Coins / Wave
+    "utility_left_bottom": (0.362, 0.945),   # Free Attack Upgrade
+    "utility_right_bottom": (0.858, 0.939),  # Free Defense Upgrade
 }
 
 PHONE_LINK_LOAD_TIME = 2.3
@@ -54,6 +81,7 @@ GAME_LOAD_TIME = 9.0
 POST_DISMISS_WAIT = 1.15
 POST_RESUME_WAIT = 4.0
 LOOP_WAIT = 0.08
+AD_GEM_CHECK_INTERVAL = 0.7
 
 
 def stop_listener():
@@ -254,28 +282,39 @@ def close_popup_and_resume():
     return True
 
 
-def open_defense_once():
-    global defense_open
+def open_defense():
+    return click_game("defense_tab", wait=0.16, label="Defense tab")
 
-    if defense_open:
-        return True
 
-    print("[INFO] Opening Defense tab...")
-    if click_game("defense_tab", wait=0.16, label="Defense tab"):
-        defense_open = True
-        time.sleep(0.18)
-        return True
+def open_attack():
+    return click_game("attack_tab", wait=0.16, label="Attack tab")
 
-    return False
+
+def try_ad_gem():
+    return click_game("ad_gem", wait=0.05, label="Ad gem")
 
 
 def basic_upgrade_loop():
-    if not open_defense_once():
-        return
-
     print("[INFO] Starting loop...")
+    last_ad_gem_time = 0.0
+
     while check_running():
+        now = time.time()
+        if now - last_ad_gem_time >= AD_GEM_CHECK_INTERVAL:
+            try_ad_gem()
+            last_ad_gem_time = now
+
+        open_defense()
         click_game("health_buy", wait=0.05, label="Health buy")
+        time.sleep(LOOP_WAIT)
+
+        now = time.time()
+        if now - last_ad_gem_time >= AD_GEM_CHECK_INTERVAL:
+            try_ad_gem()
+            last_ad_gem_time = now
+
+        open_attack()
+        click_game("damage_buy", wait=0.05, label="Damage buy")
         time.sleep(LOOP_WAIT)
 
 
