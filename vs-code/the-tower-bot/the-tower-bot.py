@@ -30,6 +30,7 @@ PHONE_LINK_TITLE = "Phone Link"
 GAME_TITLE = "The Tower"
 STOP_KEY = "f8"
 
+
 running = True
 last_focus_time = 0.0
 FOCUS_COOLDOWN = 1.0
@@ -41,38 +42,39 @@ FIRST_RESULT = (2238, 199)
 
 # Game clicks based on the live client area
 REL = {
-    "dismiss_popup_blank": (0.18, 0.22),
+    "dismiss_popup_blank": (0.491, 0.759),
     "home_resume_battle": (0.50, 0.825),
+    "death_home": (0.721, 0.707),
+    "start_new_battle": (0.502, 0.853),
     "ad_gem": (0.089, 0.581),
+    "flying_gem": (0.501, 0.216),
 
     "attack_tab": (0.128, 0.965),
     "defense_tab": (0.370, 0.965),
+    "utility_tab": (0.633, 0.965),
+    "ultimate_tab": (0.878, 0.979),
 
-    # working loop buttons
-    "health_buy": (0.345, 0.785),
-    "damage_buy": (0.345, 0.785),
+    # stored upgrade button positions
+    "attack_left_top": (0.369, 0.766),
+    "attack_right_top": (0.850, 0.767),
+    "attack_left_mid": (0.366, 0.854),
+    "attack_right_mid": (0.865, 0.852),
+    "attack_left_bottom": (0.362, 0.945),
+    "attack_right_bottom": (0.858, 0.939),
 
-    # stored upgrade button positions for later automation
-    "attack_left_top": (0.369, 0.766),      # Damage
-    "attack_right_top": (0.850, 0.767),     # Attack Speed
-    "attack_left_mid": (0.366, 0.854),      # Critical Chance
-    "attack_right_mid": (0.865, 0.852),     # Critical Factor
-    "attack_left_bottom": (0.362, 0.945),   # Range
-    "attack_right_bottom": (0.858, 0.939),  # Damage / Meter
+    "defense_left_top": (0.369, 0.766),
+    "defense_right_top": (0.850, 0.767),
+    "defense_left_mid": (0.366, 0.854),
+    "defense_right_mid": (0.865, 0.852),
+    "defense_left_bottom": (0.362, 0.945),
+    "defense_right_bottom": (0.858, 0.939),
 
-    "defense_left_top": (0.369, 0.766),      # Health
-    "defense_right_top": (0.850, 0.767),     # Health Regen
-    "defense_left_mid": (0.366, 0.854),      # Defense %
-    "defense_right_mid": (0.865, 0.852),     # Defense Absolute
-    "defense_left_bottom": (0.362, 0.945),   # Thorn Damage
-    "defense_right_bottom": (0.858, 0.939),  # Lifesteal
-
-    "utility_left_top": (0.369, 0.766),      # Cash Bonus
-    "utility_right_top": (0.850, 0.767),     # Cash / Wave
-    "utility_left_mid": (0.366, 0.854),      # Coins / Kill Bonus
-    "utility_right_mid": (0.865, 0.852),     # Coins / Wave
-    "utility_left_bottom": (0.362, 0.945),   # Free Attack Upgrade
-    "utility_right_bottom": (0.858, 0.939),  # Free Defense Upgrade
+    "utility_left_top": (0.369, 0.766),
+    "utility_right_top": (0.850, 0.767),
+    "utility_left_mid": (0.366, 0.854),
+    "utility_right_mid": (0.865, 0.852),
+    "utility_left_bottom": (0.362, 0.945),
+    "utility_right_bottom": (0.858, 0.939),
 }
 
 PHONE_LINK_LOAD_TIME = 2.3
@@ -81,7 +83,9 @@ GAME_LOAD_TIME = 9.0
 POST_DISMISS_WAIT = 1.15
 POST_RESUME_WAIT = 4.0
 LOOP_WAIT = 0.08
-AD_GEM_CHECK_INTERVAL = 0.7
+FULL_PAGE_LOOP_TARGET = 25
+HOME_BATTLE_CHECK_INTERVAL = 10
+FLYING_GEM_DURATION = 10.0
 
 
 def stop_listener():
@@ -290,32 +294,87 @@ def open_attack():
     return click_game("attack_tab", wait=0.16, label="Attack tab")
 
 
-def try_ad_gem():
-    return click_game("ad_gem", wait=0.05, label="Ad gem")
+def open_utility():
+    return click_game("utility_tab", wait=0.16, label="Utility tab")
+
+
+def open_ultimate():
+    return click_game("ultimate_tab", wait=0.16, label="Ultimate tab")
+
+
+def click_upgrade_set(names):
+    for name in names:
+        if not check_running():
+            return False
+        click_game(name, wait=0.05, label=name)
+        time.sleep(LOOP_WAIT)
+    return True
+
+
+def run_attack_page():
+    if not open_ultimate():
+        return False
+    if not open_attack():
+        return False
+    return click_upgrade_set([
+        "attack_left_top",
+    ])
+
+
+def run_defense_page():
+    if not open_defense():
+        return False
+    return click_upgrade_set([
+        "defense_left_top",
+    ])
+
+
+def run_utility_page():
+    if not open_utility():
+        return False
+    return click_upgrade_set([
+        "utility_left_mid",
+        "utility_right_mid",
+        "utility_left_bottom",
+    ])
+
+
+def do_gem_run():
+    print("[INFO] Running gem pass...")
+    click_game("ad_gem", wait=0.10, label="Ad gem")
+    end_time = time.time() + FLYING_GEM_DURATION
+    while check_running() and time.time() < end_time:
+        click_game("flying_gem", wait=0.03, label="Flying gem")
+
+
+def do_home_battle_check():
+    print("[INFO] Home and battle check...")
+    click_game("death_home", wait=0.35, label="Home check")
+    time.sleep(0.8)
+    click_game("start_new_battle", wait=0.75, label="Start New Battle")
+    time.sleep(POST_RESUME_WAIT)
 
 
 def basic_upgrade_loop():
     print("[INFO] Starting loop...")
-    last_ad_gem_time = 0.0
+    print("[INFO] Ultimate tab is used first so Attack switches open instead of closing")
+    full_loops = 0
 
     while check_running():
-        now = time.time()
-        if now - last_ad_gem_time >= AD_GEM_CHECK_INTERVAL:
-            try_ad_gem()
-            last_ad_gem_time = now
+        if not run_attack_page():
+            return
+        if not run_defense_page():
+            return
+        if not run_utility_page():
+            return
 
-        open_defense()
-        click_game("health_buy", wait=0.05, label="Health buy")
-        time.sleep(LOOP_WAIT)
+        full_loops += 1
 
-        now = time.time()
-        if now - last_ad_gem_time >= AD_GEM_CHECK_INTERVAL:
-            try_ad_gem()
-            last_ad_gem_time = now
-
-        open_attack()
-        click_game("damage_buy", wait=0.05, label="Damage buy")
-        time.sleep(LOOP_WAIT)
+        if full_loops >= FULL_PAGE_LOOP_TARGET:
+            do_gem_run()
+            if full_loops % HOME_BATTLE_CHECK_INTERVAL == 0:
+                do_home_battle_check()
+            full_loops = 0
 
 
 def main():
